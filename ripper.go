@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -90,12 +91,12 @@ func (r *ripper) rip(image string) error {
 	yTiles := height / 512
 	numTiles := xTiles * yTiles
 
-	print("")
-	print("Ripping %s.svs", image)
-	print("")
-	print("Image size: %v x %v", width, height)
-	print("Number of tiles: %d x %d = %d", xTiles, yTiles, numTiles)
-	print("")
+	log.Printf("")
+	log.Printf("Ripping %s.svs", image)
+	log.Printf("")
+	log.Printf("Image size: %v x %v", width, height)
+	log.Printf("Number of tiles: %d x %d = %d", xTiles, yTiles, numTiles)
+	log.Printf("")
 
 	// Make output dir for this image.
 	imgDir := filepath.Join(r.outputDir, image)
@@ -112,7 +113,7 @@ func (r *ripper) rip(image string) error {
 		progressbar.OptionThrottle(65*time.Millisecond),
 		progressbar.OptionShowCount(),
 		progressbar.OptionOnCompletion(func() {
-			fmt.Printf("\n")
+			log.Println()
 		}),
 	)
 

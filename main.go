@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -15,19 +15,15 @@ const (
 	concurrency = 10
 )
 
-func print(format string, a ...any) {
-	fmt.Printf(format+"\n", a...)
-}
-
 func main() {
-
+	log.SetFlags(0)
 	images := os.Args[1:]
 
 	// Create output root directory.
 	err := os.Mkdir(outputDir, os.ModePerm)
 	if err != nil {
 		if !errors.Is(err, os.ErrExist) {
-			print("Making output dir failed: %v", err)
+			log.Printf("Making output dir failed: %v", err)
 			os.Exit(1)
 		}
 	}
@@ -37,21 +33,21 @@ func main() {
 		imgDir := filepath.Join(outputDir, img)
 		_, err := os.Stat(imgDir)
 		if !os.IsNotExist(err) {
-			print("Output dir for %s already exists", img)
+			log.Printf("Output dir for %s already exists", img)
 			os.Exit(1)
 		}
 	}
 
 	ripper, err := newRipper(baseUrl, outputDir, zoomLevel, tileSize, concurrency)
 	if err != nil {
-		print("Initialization failed: %v", err)
+		log.Printf("Initialization failed: %v", err)
 		os.Exit(1)
 	}
 
 	for _, img := range images {
 		err = ripper.rip(img)
 		if err != nil {
-			print("Ripping image %s failed: %v", img, err)
+			log.Printf("Ripping image %s failed: %v", img, err)
 		}
 	}
 }
