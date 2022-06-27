@@ -29,11 +29,11 @@ type ripper struct {
 
 func newRipper(baseUrl string, outputDir string, zoomLevel, tileSize, concurrency int) (*ripper, error) {
 	// Compile regular expressions to be used later.
-	heightRegex, err := regexp.Compile("width: \"(\\d+)\"")
+	heightRegex, err := regexp.Compile("height: \"(\\d+)\"")
 	if err != nil {
 		return nil, errors.Wrapf(err, "compiling height regex failed")
 	}
-	widthRegex, err := regexp.Compile("height: \"(\\d+)\"")
+	widthRegex, err := regexp.Compile("width: \"(\\d+)\"")
 	if err != nil {
 		return nil, errors.Wrapf(err, "compiling width regex failed")
 	}
