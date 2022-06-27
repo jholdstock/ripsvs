@@ -127,7 +127,7 @@ func (r *ripper) rip(image string) error {
 
 			go func(x, y int) {
 				err := r.downloadTile(x, y, image, imgDir)
-				if err != nil || y > 10 {
+				if err != nil {
 					// Try to delete the partially downloaded image, ignore errors.
 					_ = os.RemoveAll(imgDir)
 					panic(err)
