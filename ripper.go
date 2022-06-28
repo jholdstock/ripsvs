@@ -58,9 +58,13 @@ func (r *ripper) rip(image string) error {
 	webscopeURL := fmt.Sprintf("%s%s.svs/view.apml", r.baseUrl, image)
 	resp, err := http.Get(webscopeURL)
 	if err != nil {
-		return errors.Wrapf(err, "http get failed")
+		return errors.Wrapf(err, "getting webscope failed")
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Wrapf(err, "http status %s", resp.Status)
+	}
 
 	html, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -70,7 +74,7 @@ func (r *ripper) rip(image string) error {
 	// Extract height and width of the image.
 	heightMatch := r.heightRegex.FindSubmatch(html)
 	if len(heightMatch) != 2 {
-		return fmt.Errorf("can't get height")
+		return fmt.Errorf("can't get height, %d regex matches", len(heightMatch))
 	}
 	height, err := strconv.Atoi(string(heightMatch[1]))
 	if err != nil {
@@ -79,7 +83,7 @@ func (r *ripper) rip(image string) error {
 
 	widthMatch := r.widthRegex.FindSubmatch(html)
 	if len(widthMatch) != 2 {
-		return fmt.Errorf("can't get width")
+		return fmt.Errorf("can't get width, %d regex matches", len(widthMatch))
 	}
 	width, err := strconv.Atoi(string(widthMatch[1]))
 	if err != nil {
@@ -157,7 +161,7 @@ func (r *ripper) downloadTile(x, y int, image, imgDir string) error {
 	// Download the tile.
 	resp, err := http.Get(tileUrl)
 	if err != nil {
-		return errors.Wrapf(err, "http get failed")
+		return errors.Wrapf(err, "getting tile failed")
 	}
 	defer resp.Body.Close()
 
