@@ -17,7 +17,7 @@ const (
 
 func main() {
 	log.SetFlags(0)
-	images := os.Args[1:]
+	svsFiles := os.Args[1:]
 
 	// Create output root directory.
 	err := os.Mkdir(outputDir, os.ModePerm)
@@ -29,11 +29,10 @@ func main() {
 	}
 
 	// Exit early if any of the requested images already exist.
-	for _, img := range images {
-		imgDir := filepath.Join(outputDir, img)
-		_, err := os.Stat(imgDir)
+	for _, svsFile := range svsFiles {
+		_, err := os.Stat(filepath.Join(outputDir, svsFile))
 		if !os.IsNotExist(err) {
-			log.Printf("Output dir for %s already exists", img)
+			log.Printf("Output dir for %s already exists", svsFile)
 			os.Exit(1)
 		}
 	}
@@ -44,10 +43,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, img := range images {
-		err = ripper.rip(img)
+	for _, svsFile := range svsFiles {
+		err = ripper.rip(svsFile)
 		if err != nil {
-			log.Printf("Ripping image %s failed: %v", img, err)
+			log.Printf("Ripping svs file %s failed: %v", svsFile, err)
 		}
 	}
 }

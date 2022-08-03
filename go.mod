@@ -11,6 +11,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.8.6 // indirect
 	github.com/zenthangplus/goccm v0.0.0-20211005163543-2f2e522aca15 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
+	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/sys v0.0.0-20220624220833-87e55d714810 // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 )
