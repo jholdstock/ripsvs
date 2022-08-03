@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"io"
 	"io/ioutil"
 	"log"
@@ -15,6 +18,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/schollz/progressbar/v3"
 	"github.com/zenthangplus/goccm"
+	"golang.org/x/image/draw"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
 )
 
 type ripper struct {
@@ -51,14 +58,14 @@ func newRipper(baseUrl string, outputDir string, zoomLevel, tileSize, concurrenc
 	}, nil
 }
 
-func (r *ripper) rip(image string) error {
+func (r *ripper) rip(svsFile string) error {
 
 	// Download the HTML of the WebScope page to extract the dimensions of the
 	// full image.
-	webscopeURL := fmt.Sprintf("%s%s.svs/view.apml", r.baseUrl, image)
+	webscopeURL := fmt.Sprintf("%s%s.svs/view.apml", r.baseUrl, svsFile)
 	resp, err := http.Get(webscopeURL)
 	if err != nil {
-		return errors.Wrapf(err, "getting webscope failed")
+		return errors.Wrapf(err, "getting webscope page failed")
 	}
 	defer resp.Body.Close()
 
@@ -96,17 +103,22 @@ func (r *ripper) rip(image string) error {
 	numTiles := xTiles * yTiles
 
 	log.Printf("")
-	log.Printf("Ripping %s.svs", image)
+	log.Printf("Ripping %s.svs", svsFile)
 	log.Printf("")
 	log.Printf("Image size: %v x %v", width, height)
 	log.Printf("Number of tiles: %d x %d = %d", xTiles, yTiles, numTiles)
 	log.Printf("")
 
-	// Make output dir for this image.
-	imgDir := filepath.Join(r.outputDir, image)
-	err = os.Mkdir(imgDir, os.ModePerm)
+	// Make output dirs for this image.
+	imgDir := filepath.Join(r.outputDir, svsFile)
+	err = os.MkdirAll(imgDir, os.ModePerm)
 	if err != nil {
-		return errors.Wrapf(err, "failed to make output dir for %s", image)
+		return errors.Wrapf(err, "failed to make output dir for %s", svsFile)
+	}
+	tilesDir := filepath.Join(r.outputDir, svsFile, "tiles")
+	err = os.MkdirAll(tilesDir, os.ModePerm)
+	if err != nil {
+		return errors.Wrapf(err, "failed to make output dir for %s", svsFile)
 	}
 
 	// Prepare a progress bar.
@@ -124,6 +136,9 @@ func (r *ripper) rip(image string) error {
 	// Limit number of concurrent tile downloads.
 	c := goccm.New(r.concurrency)
 
+	previewScale := 4
+	completeImg := image.NewRGBA(image.Rect(0, 0, width/previewScale, height/previewScale))
+
 	// Download tiles.
 	for x := 0; x < xTiles; x++ {
 		for y := 0; y < yTiles; y++ {
@@ -131,12 +146,48 @@ func (r *ripper) rip(image string) error {
 			c.Wait()
 
 			go func(x, y int) {
-				err := r.downloadTile(x, y, image, imgDir)
+				fileName := fmt.Sprintf("%dx%d.jpeg", x, y)
+				path := filepath.Join(tilesDir, fileName)
+
+				err := r.downloadTile(x, y, path, svsFile)
 				if err != nil {
-					// Try to delete the partially downloaded image, ignore errors.
+					// Try to delete the partially downloaded svs, ignore errors.
 					_ = os.RemoveAll(imgDir)
 					panic(err)
 				}
+
+				// Add the downloaded image to the complete image.
+				imgFile, err := os.Open(path)
+				if err != nil {
+					// Try to delete the partially downloaded svs, ignore errors.
+					_ = os.RemoveAll(imgDir)
+					panic(err)
+				}
+				img, _, err := image.Decode(imgFile)
+				if err != nil {
+					// Try to delete the partially downloaded svs, ignore errors.
+					_ = os.RemoveAll(imgDir)
+					panic(err)
+				}
+
+				// Where to draw this image inside the complete image.
+				drawX := x * r.tileSize / previewScale
+				drawY := y * r.tileSize / previewScale
+				drawPos := image.Point{drawX, drawY}
+
+				// Where to draw the image inside the output image.
+				drawRect := image.Rectangle{drawPos, drawPos.Add(img.Bounds().Size().Div(previewScale))}
+
+				draw.CatmullRom.Scale(completeImg, drawRect, img, img.Bounds(), draw.Over, nil)
+
+				d := &font.Drawer{
+					Dst:  completeImg,
+					Src:  image.NewUniform(color.Black),
+					Face: basicfont.Face7x13,
+					Dot:  fixed.Point26_6{fixed.I(drawX + 3), fixed.I(drawY + 13)},
+				}
+				d.DrawString(fileName)
+
 				bar.Add(1)
 				c.Done()
 			}(x, y)
@@ -146,17 +197,41 @@ func (r *ripper) rip(image string) error {
 	// Wait for all tiles to be downloaded.
 	c.WaitAllDone()
 
+	// Add grid lines to preview image.
+	for x := 0; x < xTiles; x++ {
+		for y := 0; y < completeImg.Rect.Dy(); y++ {
+			completeImg.Set(x*r.tileSize/previewScale, y, color.Black)
+		}
+	}
+
+	for y := 0; y < yTiles; y++ {
+		for x := 0; x < completeImg.Rect.Dx(); x++ {
+			completeImg.Set(x, y*r.tileSize/previewScale, color.Black)
+		}
+	}
+
+	// Write preview image.
+	previewFile := filepath.Join(imgDir, "preview.jpeg")
+	out, err := os.Create(previewFile)
+	if err != nil {
+		// Try to delete the partially downloaded svs, ignore errors.
+		_ = os.RemoveAll(imgDir)
+		panic(err)
+	}
+
+	var opt jpeg.Options
+	opt.Quality = 100
+	log.Printf("Writing preview image...")
+	jpeg.Encode(out, completeImg, &opt)
+
 	return nil
 }
 
-func (r *ripper) downloadTile(x, y int, image, imgDir string) error {
-
-	fileName := fmt.Sprintf("%dx%d.jpeg", x, y)
-	path := filepath.Join(imgDir, fileName)
+func (r *ripper) downloadTile(x, y int, path, svsFile string) error {
 
 	// Construct the URL for this tile.
 	tileUrl := fmt.Sprintf("%s%s.svs?%d+%d+%d+%d+%d", r.baseUrl,
-		image, x*r.tileSize, y*r.tileSize, r.tileSize, r.tileSize, r.zoomLevel)
+		svsFile, x*r.tileSize, y*r.tileSize, r.tileSize, r.tileSize, r.zoomLevel)
 
 	// Download the tile.
 	resp, err := http.Get(tileUrl)
