@@ -5,22 +5,36 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/jessevdk/go-flags"
 )
 
 const (
-	baseUrl     = "http://image.upmc.edu:8080/NikiForov%20EFV%20Study/BoxA/"
 	outputDir   = "output"
 	tileSize    = 512
 	zoomLevel   = 1
 	concurrency = 10
 )
 
+var args struct {
+	BaseUrl string `short:"u" long:"url" description:"The base url of the ImageScope files." required:"true"`
+}
+
 func main() {
 	log.SetFlags(0)
-	svsFiles := os.Args[1:]
+
+	svsFiles, err := flags.Parse(&args)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	if len(svsFiles) == 0 {
+		log.Print("No image files specified")
+		os.Exit(1)
+	}
 
 	// Create output root directory.
-	err := os.Mkdir(outputDir, os.ModePerm)
+	err = os.Mkdir(outputDir, os.ModePerm)
 	if err != nil {
 		if !errors.Is(err, os.ErrExist) {
 			log.Printf("Making output dir failed: %v", err)
@@ -37,7 +51,7 @@ func main() {
 		}
 	}
 
-	ripper, err := newRipper(baseUrl, outputDir, zoomLevel, tileSize, concurrency)
+	ripper, err := newRipper(args.BaseUrl, outputDir, zoomLevel, tileSize, concurrency)
 	if err != nil {
 		log.Printf("Initialization failed: %v", err)
 		os.Exit(1)
