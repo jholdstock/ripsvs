@@ -12,7 +12,7 @@ Further work may extend to additional image hosting domains.
 
 ## Getting Started
 
-```.bash
+```bash
 # Download and build the extraction tool:
 git clone https://github.com/jholdstock/ripsvs
 cd ripsvs
